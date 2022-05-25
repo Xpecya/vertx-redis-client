@@ -16,8 +16,6 @@
 package io.vertx.redis.client.impl;
 
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.Command;
 import io.vertx.redis.client.Request;
 
@@ -42,13 +40,7 @@ public final class RequestImpl implements Request {
   private final List<byte[]> args;
 
   public RequestImpl(Command cmd) {
-    this.cmd = (CommandImpl) cmd;
-
-    if (this.cmd.getArity() != 0) {
-      args = new ArrayList<>(Math.abs(this.cmd.getArity()));
-    } else {
-      args = Collections.emptyList();
-    }
+    this(cmd, null);
   }
 
   public RequestImpl(Command cmd, Object[] args) {
@@ -78,14 +70,24 @@ public final class RequestImpl implements Request {
               args[i] = ((Buffer) o).getBytes();
               continue;
             }
-            throw new IllegalArgumentException("Unsupported argument type: " + o.getClass());
+            // tell the user what class to use
+            throw new IllegalArgumentException("Unsupported argument type: " + o.getClass() + ", supported types are "
+              + Number.class.getName() + ", " + Boolean.class.getName() + ", " + String.class.getName()
+              + ", byte[] and " + Buffer.class.getName()
+            );
           }
         }
         this.args = (List) Arrays.asList(args);
         return;
       }
     }
-    this.args = Collections.emptyList();
+    // make sure arg() function would work when cmd.getArity() != 0
+    int arity = this.cmd.getArity();
+    if (arity != 0) {
+      this.args = new ArrayList<>(Math.abs(arity));
+    } else {
+      this.args = Collections.emptyList();
+    }
   }
 
   @Override

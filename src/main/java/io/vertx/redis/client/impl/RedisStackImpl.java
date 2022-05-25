@@ -16,12 +16,13 @@
 package io.vertx.redis.client.impl;
 
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.redis.client.*;
 
 public class RedisStackImpl implements RedisStack {
 
-  private final Redis redis;
-  private final RedisConnection connection;
+  private Redis redis;
+  private RedisConnection connection;
 
   public RedisStackImpl(RedisConnection connection) {
     this.connection = connection;
@@ -46,19 +47,28 @@ public class RedisStackImpl implements RedisStack {
     return Future.failedFuture("Invalid state: no pool or connection available");
   }
 
+  /**
+   * clear {@link Redis} and {@link RedisConnection} to make sure
+   * none of {@link Redis#send(Request)} and {@link RedisConnection#send(Request)} are able to be called
+   * after this stack is already closed
+   */
   @Override
   public Future<Void> close() {
     if (redis != null) {
       // operating in pooled mode
       try {
         redis.close();
+        redis = null;
         return Future.succeededFuture();
       } catch (RuntimeException e) {
         return Future.failedFuture(e);
       }
     } else if (connection != null) {
       // operating on connection mode
-      return connection.close();
+      return connection.close().map(__ -> {
+        connection = null;
+        return null;
+      });
     }
 
     return Future.failedFuture("Invalid state: no pool or connection available");
